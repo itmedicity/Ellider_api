@@ -21,7 +21,7 @@ const { oraConnection } = require('./config/oracleConn');
 // const { roomMasterJob } = require('./Eliider_import/scheduler/ora_roommaster')
 // const { bedJob } = require('./Eliider_import/scheduler/ora_bed')
 // const { patientImportJob } = require('./Eliider_import/scheduler/ora_patient')
-// const { ipAdmissJob } = require('./Eliider_import/scheduler/ora_ipadmiss')
+const { ipAdmissJob } = require('./Eliider_import/scheduler/ora_ipadmiss')
 // const { ipadmissUpdation } = require('./Eliider_import/scheduler/oraIpadmisUpdation')
 
 app.use(express.json());
