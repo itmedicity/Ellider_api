@@ -12,17 +12,17 @@ const { oraConnection } = require('./config/oracleConn');
 
 
 // Oracle Ellider From tmcdb
-// const { userUpload_job } = require('./Eliider_import/scheduler/ora_users');
-// const { outletUploadJob } = require('./Eliider_import/scheduler/ora_outlets')
-// const { nurstationJob } = require('./Eliider_import/scheduler/ora_nurstation')
-// const { doctorJob } = require('./Eliider_import/scheduler/ora_doctor')
-// const { roomCategoryJob } = require('./Eliider_import/scheduler/ora_roomcategory')
-// const { roomTypeJob } = require('./Eliider_import/scheduler/ora_romtype')
-// const { roomMasterJob } = require('./Eliider_import/scheduler/ora_roommaster')
-// const { bedJob } = require('./Eliider_import/scheduler/ora_bed')
-// const { patientImportJob } = require('./Eliider_import/scheduler/ora_patient')
+const { userUpload_job } = require('./Eliider_import/scheduler/ora_users');
+const { outletUploadJob } = require('./Eliider_import/scheduler/ora_outlets')
+const { nurstationJob } = require('./Eliider_import/scheduler/ora_nurstation')
+const { doctorJob } = require('./Eliider_import/scheduler/ora_doctor')
+const { roomCategoryJob } = require('./Eliider_import/scheduler/ora_roomcategory')
+const { roomTypeJob } = require('./Eliider_import/scheduler/ora_romtype')
+const { roomMasterJob } = require('./Eliider_import/scheduler/ora_roommaster')
+const { bedJob } = require('./Eliider_import/scheduler/ora_bed')
+const { patientImportJob } = require('./Eliider_import/scheduler/ora_patient')
 const { ipAdmissJob } = require('./Eliider_import/scheduler/ora_ipadmiss')
-// const { ipadmissUpdation } = require('./Eliider_import/scheduler/oraIpadmisUpdation')
+const { ipadmissUpdation } = require('./Eliider_import/scheduler/oraIpadmisUpdation')
 
 app.use(express.json());
 

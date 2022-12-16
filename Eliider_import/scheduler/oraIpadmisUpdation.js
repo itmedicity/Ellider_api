@@ -6,11 +6,11 @@ const moment = require('moment');
 const { oraConnection } = require('../../config/oracleConn');
 
 
-// const customDate = moment().format("DD-MMM-YYYY")
-const customDate = '24-sep-2022'
-// const customDateMysql = moment().format("YYYY-MM-DD")
+const customDate = moment().format("DD-MMM-YYYY")
+// const customDate = '24-sep-2022'
+const customDateMysql = moment().format("YYYY-MM-DD")
 
-const ipadmissUpdation = schedule.scheduleJob('* * * * *', async () => {
+const ipadmissUpdation = schedule.scheduleJob('18 * * * *', async () => {
     const conn = await oraConnection();
     // Get data From oracle database "OUTLET" table
     const result = await conn.execute(
@@ -36,7 +36,15 @@ const ipadmissUpdation = schedule.scheduleJob('* * * * *', async () => {
 
         const mysqlIpPatient = (callBack) => {
             pool.query(
-                `SELECT ip_no,rc_code,bd_code,do_code,ipd_disc,ipc_status FROM ora_ipadmiss WHERE ipc_status IS NULL`,
+                `SELECT 
+                    ip_no,
+                    rc_code,
+                    bd_code,
+                    do_code,
+                    ipd_disc,
+                    ipc_status 
+                FROM ora_ipadmiss 
+                WHERE ipc_status IS NULL`,
                 [],
                 (error, result) => {
                     if (error) {

@@ -6,7 +6,7 @@ const { oraConnection } = require('../../config/oracleConn');
 
 const customDate = moment().format("DD-MMM-YYYY")
 
-const patientImportJob = schedule.scheduleJob('* * * * *', async () => {
+const patientImportJob = schedule.scheduleJob('15 * * * *', async () => {
     const conn = await oraConnection();
 
     //SELECT PT_NO FROM IPADMISS WHERE TRUNC(IPD_DATE) = :customDate AND IPC_PTFLAG = 'N'

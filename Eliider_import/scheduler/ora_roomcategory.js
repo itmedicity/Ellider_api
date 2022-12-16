@@ -3,8 +3,9 @@ const schedule = require('node-schedule');
 const pool = require('../../config/database')
 
 const { oraConnection } = require('../../config/oracleConn');
+const { checkOrarRoomCategoryAlredyExcist } = require('./Func/FilterFunction');
 
-const roomCategoryJob = schedule.scheduleJob('* * * * *', async () => {
+const roomCategoryJob = schedule.scheduleJob('* 8 * * *', async () => {
     const conn = await oraConnection();
 
     // Get data From oracle database "OUTLET" table
@@ -23,39 +24,48 @@ const roomCategoryJob = schedule.scheduleJob('* * * * *', async () => {
         { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
     )
 
-    const userData = await result.resultSet?.getRows();
+    const roomCategoryFromOra = await result.resultSet?.getRows();
 
     //Inser to My sql Database "ora_outlet" table
 
     try {
-        userData && userData.map((value, index) => {
-            console.log(value)
-            pool.query(
-                `INSERT INTO ora_roomcategory
-                    (rc_code,
-                    rcc_desc,
-                    rcc_alias,
-                    rcn_order,
-                    rcc_status,
-                    us_code,
-                    rcd_eddate,
-                    rcc_mhcode)
-                VALUES(?,?,?,?,?,?,?,?)`,
-                [
-                    value.RC_CODE,
-                    value.RCC_DESC,
-                    value.RCC_ALIAS,
-                    value.RCN_ORDER,
-                    value.RCC_STATUS,
-                    value.US_CODE,
-                    value.RCD_EDDATE,
-                    value.RCC_MHCODE
-                ],
-                (error, result) => {
-                    if (error) throw error;
-                }
-            )
+        checkOrarRoomCategoryAlredyExcist((roomCategoryFromMysql) => {
+            const roomCategory = roomCategoryFromMysql.map((val) => val.rc_code);
+
+            let newArray = roomCategoryFromOra?.filter((value) => {
+                return roomCategory.includes(value.RC_CODE) === true ? null : value;
+            })
+
+            newArray && newArray.map((value, index) => {
+                console.log(value)
+                pool.query(
+                    `INSERT INTO ora_roomcategory
+                        (rc_code,
+                        rcc_desc,
+                        rcc_alias,
+                        rcn_order,
+                        rcc_status,
+                        us_code,
+                        rcd_eddate,
+                        rcc_mhcode)
+                    VALUES(?,?,?,?,?,?,?,?)`,
+                    [
+                        value.RC_CODE,
+                        value.RCC_DESC,
+                        value.RCC_ALIAS,
+                        value.RCN_ORDER,
+                        value.RCC_STATUS,
+                        value.US_CODE,
+                        value.RCD_EDDATE,
+                        value.RCC_MHCODE
+                    ],
+                    (error, result) => {
+                        if (error) throw error;
+                    }
+                )
+            })
         })
+
     } catch (err) {
         console.log(err)
     }

@@ -8,7 +8,7 @@ const { oraConnection } = require('../../config/oracleConn');
 const customDate = moment().format("DD-MMM-YYYY")
 const customDateMysql = moment().format("YYYY-MM-DD")
 
-const ipAdmissJob = schedule.scheduleJob('* * * * *', async () => {
+const ipAdmissJob = schedule.scheduleJob('16 * * * *', async () => {
     const conn = await oraConnection();
 
     // Get data From oracle database "OUTLET" table
@@ -52,7 +52,7 @@ const ipAdmissJob = schedule.scheduleJob('* * * * *', async () => {
             ipc_mlc,
             ms_code,
             ipc_rtcode
-        FROM IPADMISS WHERE TRUNC(IPD_DATE) = :customDate AND IPC_PTFLAG = 'N' ORDER BY ip_no ASC`,
+        FROM IPADMISS WHERE TRUNC(IPD_DATE) = :customDate AND IPC_PTFLAG = 'N' AND IPC_STATUS IS NULL ORDER BY ip_no ASC`,
         //WHERE  IPC_PTFLAG = 'N' AND IPC_STATUS IS NULL AND DMC_SLNO IS NULL
         //WHERE TRUNC(IPD_DATE) = :customDate AND IPC_PTFLAG = 'N' ORDER BY ip_no ASC
         //customDate

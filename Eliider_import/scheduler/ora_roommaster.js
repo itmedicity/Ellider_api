@@ -3,8 +3,9 @@ const schedule = require('node-schedule');
 const pool = require('../../config/database')
 
 const { oraConnection } = require('../../config/oracleConn');
+const { checkOrarRoomMasterAlredyExcist } = require('./Func/FilterFunction');
 
-const roomMasterJob = schedule.scheduleJob('* * * * *', async () => {
+const roomMasterJob = schedule.scheduleJob('* 8 * * *', async () => {
     const conn = await oraConnection();
 
     // Get data From oracle database "OUTLET" table
@@ -23,39 +24,51 @@ const roomMasterJob = schedule.scheduleJob('* * * * *', async () => {
         { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
     )
 
-    const userData = await result.resultSet?.getRows();
+    const roomMasterFromOra = await result.resultSet?.getRows();
 
     //Inser to My sql Database "ora_outlet" table
 
     try {
-        userData && userData.map((value, index) => {
-            console.log(value)
-            pool.query(
-                `INSERT INTO ora_roommaster
-                    (rm_code,
-                    rmc_desc,
-                    rmc_alias,
-                    ns_code,
-                    rmc_status,
-                    rmd_eddate,
-                    rmc_mhcode,
-                    us_code)
-                VALUES(?,?,?,?,?,?,?,?)`,
-                [
-                    value.RM_CODE,
-                    value.RMC_DESC,
-                    value.RMC_ALIAS,
-                    value.NS_CODE,
-                    value.RMC_STATUS,
-                    value.RMD_EDDATE,
-                    value.RMC_MHCODE,
-                    value.US_CODE
-                ],
-                (error, result) => {
-                    if (error) throw error;
-                }
-            )
+        checkOrarRoomMasterAlredyExcist((roomMasterFromMysql) => {
+            const roomCode = roomMasterFromMysql.map((val) => val.rm_code);
+
+            let newUserArray = roomMasterFromOra?.filter((value) => {
+                return roomCode.includes(value.RM_CODE) === true ? null : value;
+            })
+
+            console.log(newUserArray)
+
+            // console.log(newUserArray)
+
+            newUserArray && newUserArray.map((value, index) => {
+                pool.query(
+                    `INSERT INTO ora_roommaster
+                        (rm_code,
+                        rmc_desc,
+                        rmc_alias,
+                        ns_code,
+                        rmc_status,
+                        rmd_eddate,
+                        rmc_mhcode,
+                        us_code)
+                    VALUES(?,?,?,?,?,?,?,?)`,
+                    [
+                        value.RM_CODE,
+                        value.RMC_DESC,
+                        value.RMC_ALIAS,
+                        value.NS_CODE,
+                        value.RMC_STATUS,
+                        value.RMD_EDDATE,
+                        value.RMC_MHCODE,
+                        value.US_CODE
+                    ],
+                    (error, result) => {
+                        if (error) throw error;
+                    }
+                )
+            })
         })
+
     } catch (err) {
         console.log(err)
     }
