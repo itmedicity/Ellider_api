@@ -10,7 +10,6 @@ const oracledb = require('oracledb');
 const { oraConnection } = require('./config/oracleConn');
 // const { testjob } = require('./Test')
 
-
 // Oracle Ellider From tmcdb
 const { userUpload_job } = require('./Eliider_import/scheduler/ora_users');
 const { outletUploadJob } = require('./Eliider_import/scheduler/ora_outlets')
@@ -22,7 +21,13 @@ const { roomMasterJob } = require('./Eliider_import/scheduler/ora_roommaster')
 const { bedJob } = require('./Eliider_import/scheduler/ora_bed')
 const { patientImportJob } = require('./Eliider_import/scheduler/ora_patient')
 const { ipAdmissJob } = require('./Eliider_import/scheduler/ora_ipadmiss')
+const { rmallTableImport } = require('./Eliider_import/scheduler/ora_rmall')
 const { ipadmissUpdation } = require('./Eliider_import/scheduler/oraIpadmisUpdation')
+
+const { ipadmissUpdationBasedOnDischarge } = require('./Eliider_import/scheduler/ipadmiss_updation')
+
+
+// const { job } = require('./Eliider_import/scheduler/nodeCronJob')
 
 app.use(express.json());
 

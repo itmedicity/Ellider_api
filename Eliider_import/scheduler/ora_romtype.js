@@ -5,28 +5,31 @@ const pool = require('../../config/database')
 const { oraConnection } = require('../../config/oracleConn');
 const { checkOrarRoomTypeAlredyExcist } = require('./Func/FilterFunction');
 
-const roomTypeJob = schedule.scheduleJob('* 8 * * *', async () => {
-    const conn = await oraConnection();
+const roomTypeJob = schedule.scheduleJob('0 */6 * * *', async () => {
 
-    // Get data From oracle database "OUTLET" table
-    const result = await conn.execute(
-        `SELECT  
-            rt_code,
-            rtc_desc,
-            rtc_alias,
-            rc_code,
-            rtc_status,
-            us_code
-        FROM ROOMTYPE`,
-        [],
-        { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
-    )
+    let oraPool = await oraConnection();
+    let oraConn = await oraPool.getConnection();
 
-    const roomTypeFromOra = await result.resultSet?.getRows();
-
-    //Inser to My sql Database "ora_outlet" table
 
     try {
+
+        // Get data From oracle database "OUTLET" table
+        const result = await oraConn.execute(
+            `SELECT  
+                rt_code,
+                rtc_desc,
+                rtc_alias,
+                rc_code,
+                rtc_status,
+                us_code
+            FROM ROOMTYPE`,
+            [],
+            { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
+        )
+
+        const roomTypeFromOra = await result.resultSet?.getRows();
+
+        //Inser to My sql Database "ora_outlet" table
 
         checkOrarRoomTypeAlredyExcist((roomTypeFromMySql) => {
             const roomType = roomTypeFromMySql.map((val) => val.rt_code);
@@ -62,10 +65,13 @@ const roomTypeJob = schedule.scheduleJob('* 8 * * *', async () => {
 
     } catch (err) {
         console.log(err)
+    } finally {
+        console.log('roomtype-completed')
+        if (oraConn) {
+            await oraConn.close();
+            await oraPool.close(3)
+        }
     }
-
-    // console.log(userData)
-    console.log(new Date())
 })
 
 

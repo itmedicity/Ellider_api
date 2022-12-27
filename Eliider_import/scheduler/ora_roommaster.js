@@ -5,30 +5,32 @@ const pool = require('../../config/database')
 const { oraConnection } = require('../../config/oracleConn');
 const { checkOrarRoomMasterAlredyExcist } = require('./Func/FilterFunction');
 
-const roomMasterJob = schedule.scheduleJob('* 8 * * *', async () => {
-    const conn = await oraConnection();
+const roomMasterJob = schedule.scheduleJob('0 */6 * * *', async () => {
 
-    // Get data From oracle database "OUTLET" table
-    const result = await conn.execute(
-        `SELECT 
-            rm_code,
-            rmc_desc,
-            rmc_alias,
-            ns_code,
-            rmc_status,
-            rmd_eddate,
-            rmc_mhcode,
-            us_code
-        FROM ROOMMASTER`,
-        [],
-        { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
-    )
-
-    const roomMasterFromOra = await result.resultSet?.getRows();
-
-    //Inser to My sql Database "ora_outlet" table
+    let oraPool = await oraConnection();
+    let oraConn = await oraPool.getConnection();
 
     try {
+
+        // Get data From oracle database "OUTLET" table
+        const result = await oraConn.execute(
+            `SELECT 
+                rm_code,
+                rmc_desc,
+                rmc_alias,
+                ns_code,
+                rmc_status,
+                rmd_eddate,
+                rmc_mhcode,
+                us_code
+            FROM ROOMMASTER`,
+            [],
+            { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
+        )
+
+        const roomMasterFromOra = await result.resultSet?.getRows();
+
+        //Inser to My sql Database "ora_outlet" table
         checkOrarRoomMasterAlredyExcist((roomMasterFromMysql) => {
             const roomCode = roomMasterFromMysql.map((val) => val.rm_code);
 
@@ -71,12 +73,14 @@ const roomMasterJob = schedule.scheduleJob('* 8 * * *', async () => {
 
     } catch (err) {
         console.log(err)
+    } finally {
+        console.log('roommaster-completed')
+        if (oraConn) {
+            await oraConn.close();
+            await oraPool.close(3)
+        }
     }
-
-    // console.log(userData)
-    console.log(new Date())
 })
-
 
 module.exports = {
     roomMasterJob

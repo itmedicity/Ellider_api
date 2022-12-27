@@ -6,69 +6,63 @@ const { oraConnection } = require('../../config/oracleConn');
 
 const customDate = moment().format("DD-MMM-YYYY")
 
-const patientImportJob = schedule.scheduleJob('15 * * * *', async () => {
-    const conn = await oraConnection();
+const patientImportJob = schedule.scheduleJob('* * * * *', async () => {
 
-    //SELECT PT_NO FROM IPADMISS WHERE TRUNC(IPD_DATE) = :customDate AND IPC_PTFLAG = 'N'
-    //SELECT PT_NO FROM IPADMISS WHERE  IPC_PTFLAG = 'N' AND IPC_STATUS IS NULL AND DMC_SLNO IS NULL
+    let oraPool = await oraConnection();
+    let oraConn = await oraPool.getConnection();
 
-    // Get data From oracle database "OUTLET" table
-    const result = await conn.execute(
-        `SELECT 
-            pt_no,
-            ptd_date,
-            ptc_ptname,
-            ptc_type,
-            ptc_sex,
-            ptd_dob,
-            sa_code,
-            bg_code,
-            oc_code,
-            or_code,
-            rl_code,
-            ms_code,
-            rg_code,
-            re_code,
-            do_code,
-            ptc_ptflag,
-            cu_code,
-            us_code,
-            pt_code,
-            ptc_flag,
-            ptc_mobile,
-            ptc_mhcode
-        FROM PATIENT 
-        WHERE PT_NO IN (SELECT PT_NO FROM IPADMISS WHERE TRUNC(IPD_DATE) = :customDate AND IPC_PTFLAG = 'N' AND IPC_STATUS IS NULL)`,
-        [customDate],
-        { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
-    )
-
-    //WHERE PT_NO IN (SELECT PT_NO FROM IPADMISS WHERE TRUNC(IPD_DATE) = :customDate AND IPC_PTFLAG = 'N'
-    //customDate
-
-    const userData = await result.resultSet?.getRows();
-
-    //Inser to My sql Database "ora_outlet" table
+    const PatientOpnumber = (callBack) => {
+        pool.query(
+            `SELECT pt_no FROM ora_patient`,
+            [],
+            (error, result) => {
+                if (error) {
+                    throw error
+                }
+                return callBack(JSON.parse(JSON.stringify(result)));
+            }
+        )
+    }
 
     try {
-        const PatientOpnumber = (callBack) => {
-            pool.query(
-                `SELECT pt_no FROM ora_patient`,
-                [],
-                (error, result) => {
-                    if (error) {
-                        throw error
-                    }
-                    return callBack(JSON.parse(JSON.stringify(result)));
-                }
-            )
-        }
+        //get the data from oracle
+        let result = await oraConn.execute(
+            `SELECT 
+                pt_no,
+                ptd_date,
+                ptc_ptname,
+                ptc_type,
+                ptc_sex,
+                ptd_dob,
+                sa_code,
+                bg_code,
+                oc_code,
+                or_code,
+                rl_code,
+                ms_code,
+                rg_code,
+                re_code,
+                do_code,
+                ptc_ptflag,
+                cu_code,
+                us_code,
+                pt_code,
+                ptc_flag,
+                ptc_mobile,
+                ptc_mhcode
+            FROM PATIENT 
+            WHERE PT_NO IN (SELECT PT_NO FROM IPADMISS WHERE TRUNC(IPD_DATE) = TRUNC(SYSDATE) 
+            AND IPC_PTFLAG = 'N' AND IPC_STATUS IS NULL)`,
+            [],
+            { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
+        )
 
+        const patientData = await result.resultSet?.getRows();
+
+        //insert into the mysql 
         PatientOpnumber((result) => {
             const PatietData = result?.map(val => val.pt_no)
-            const ActualPtno = userData && userData.filter(val => PatietData.includes(val.PT_NO) === true ? null : val.PT_NO)
-            // console.log(ActualPtno)
-            // console.log(ActualPtno)
+            const ActualPtno = patientData && patientData.filter(val => PatietData.includes(val.PT_NO) === true ? null : val.PT_NO)
             ActualPtno && ActualPtno.map((value, index) => {
                 pool.query(
                     `INSERT INTO ora_patient
@@ -97,11 +91,11 @@ const patientImportJob = schedule.scheduleJob('15 * * * *', async () => {
                     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
                     [
                         value.PT_NO,
-                        value.PTD_DATE,
+                        moment(value.PTD_DATE).format('YYYY-MM-DD HH:mm:ss'),
                         value.PTC_PTNAME,
                         value.PTC_TYPE,
                         value.PTC_SEX,
-                        value.PTD_DOB,
+                        moment(value.PTD_DOB).format('YYYY-MM-DD'),
                         value.SA_CODE,
                         value.BG_CODE,
                         value.OC_CODE,
@@ -125,12 +119,16 @@ const patientImportJob = schedule.scheduleJob('15 * * * *', async () => {
                 )
             })
         })
-    } catch (err) {
-        // console.log(err)
-    }
 
-    console.log("OP 5 Minits")
-    result.resultSet?.close()
+    } catch (err) {
+        console.log(err)
+    } finally {
+        console.log('patient-completed')
+        if (oraConn) {
+            await oraConn.close();
+            await oraPool.close(3)
+        }
+    }
 })
 
 module.exports = {

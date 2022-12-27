@@ -8,68 +8,17 @@ const { oraConnection } = require('../../config/oracleConn');
 const customDate = moment().format("DD-MMM-YYYY")
 const customDateMysql = moment().format("YYYY-MM-DD")
 
-const ipAdmissJob = schedule.scheduleJob('16 * * * *', async () => {
-    const conn = await oraConnection();
+const ipAdmissJob = schedule.scheduleJob('* * * * *', async () => {
 
-    // Get data From oracle database "OUTLET" table
-    const result = await conn.execute(
-        `SELECT 
-            ip_no,
-            pt_no,
-            ipd_date,
-            ptc_ptname,
-            ptc_type,
-            ptc_sex,
-            ptd_dob,
-            sa_code,
-            ptc_loadd1,
-            ptc_loadd2,
-            rc_code,
-            bd_code,
-            do_code,
-            rs_code,
-            ipd_disc,
-            ipc_status,
-            dmc_cacr,
-            dmc_slno,
-            dmd_date,
-            us_code,
-            cu_code,
-            pt_code,
-            dis_uscode,
-            ptc_mobile,
-            ipc_ptflag,
-            ipc_mhcode,
-            ipc_admitdocode,
-            st_code,
-            ipc_admittypcode,
-            ipc_diagnosis,
-            rl_code,
-            ipc_ipbillremark,
-            ipc_blremarkuser,
-            ipc_fathername,
-            rg_code,
-            ipc_mlc,
-            ms_code,
-            ipc_rtcode
-        FROM IPADMISS WHERE TRUNC(IPD_DATE) = :customDate AND IPC_PTFLAG = 'N' AND IPC_STATUS IS NULL ORDER BY ip_no ASC`,
-        //WHERE  IPC_PTFLAG = 'N' AND IPC_STATUS IS NULL AND DMC_SLNO IS NULL
-        //WHERE TRUNC(IPD_DATE) = :customDate AND IPC_PTFLAG = 'N' ORDER BY ip_no ASC
-        //customDate
-        [customDate],
-        { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
-    )
-
-    const userData = await result.resultSet?.getRows();
-
-    //Inser to My sql Database "ora_outlet" table
+    let oraPool = await oraConnection();
+    let oraConn = await oraPool.getConnection();
 
     try {
 
         const PatientIpNumber = (callBack) => {
             pool.query(
-                `SELECT ip_no FROM ora_ipadmiss WHERE date(ipd_date) = ?`,
-                [customDateMysql],
+                `SELECT ip_no FROM ora_ipadmiss WHERE date(ipd_date) = date(curdate())`,
+                [],
                 (error, result) => {
                     if (error) {
                         throw error
@@ -78,12 +27,60 @@ const ipAdmissJob = schedule.scheduleJob('16 * * * *', async () => {
                 }
             )
         }
-        //`SELECT ip_no FROM ora_ipadmiss WHERE date(ipd_date) = ?`,
-        //customDateMysql
+
+        //get ip admission data from oracle
+        const result = await oraConn.execute(
+            `SELECT 
+                ip_no,
+                pt_no,
+                ipd_date,
+                ptc_ptname,
+                ptc_type,
+                ptc_sex,
+                ptd_dob,
+                sa_code,
+                ptc_loadd1,
+                ptc_loadd2,
+                rc_code,
+                bd_code,
+                do_code,
+                rs_code,
+                ipd_disc,
+                ipc_status,
+                dmc_cacr,
+                dmc_slno,
+                dmd_date,
+                us_code,
+                cu_code,
+                pt_code,
+                dis_uscode,
+                ptc_mobile,
+                ipc_ptflag,
+                ipc_mhcode,
+                ipc_admitdocode,
+                st_code,
+                ipc_admittypcode,
+                ipc_diagnosis,
+                rl_code,
+                ipc_ipbillremark,
+                ipc_blremarkuser,
+                ipc_fathername,
+                rg_code,
+                ipc_mlc,
+                ms_code,
+                ipc_rtcode
+            FROM IPADMISS WHERE TRUNC(IPD_DATE) = TRUNC(SYSDATE) AND IPC_PTFLAG = 'N' AND IPC_STATUS IS NULL ORDER BY ip_no ASC`,
+            [],
+            { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
+        )
+        // console.log(customDate)
+        const ipAdmissionData = await result.resultSet?.getRows();
+        // console.log(ipAdmissionData)
+
         PatientIpNumber((patientIpNo) => {
             // console.log(patientIpNo)
             const patIpNumber = patientIpNo?.map(val => val.ip_no);
-            const ActualIpAdmission = userData && userData.filter(val => patIpNumber.includes(val.IP_NO) === true ? null : val.IP_NO)
+            const ActualIpAdmission = ipAdmissionData && ipAdmissionData.filter(val => patIpNumber.includes(val.IP_NO) === true ? null : val.IP_NO)
             // console.log(ActualIpAdmission)
             ActualIpAdmission && ActualIpAdmission.map((value, index) => {
                 pool.query(
@@ -130,11 +127,11 @@ const ipAdmissJob = schedule.scheduleJob('16 * * * *', async () => {
                     [
                         value.IP_NO,
                         value.PT_NO,
-                        value.IPD_DATE,
+                        moment(value.IPD_DATE).format('YYYY-MM-DD HH:mm:ss'),
                         value.PTC_PTNAME,
                         value.PTC_TYPE,
                         value.PTC_SEX,
-                        value.PTD_DOB,
+                        moment(value.PTD_DOB).format('YYYY-MM-DD'),
                         value.SA_CODE,
                         value.PTC_LOADD1,
                         value.PTC_LOADD2,
@@ -142,11 +139,11 @@ const ipAdmissJob = schedule.scheduleJob('16 * * * *', async () => {
                         value.BD_CODE,
                         value.DO_CODE,
                         value.RS_CODE,
-                        value.IPD_DISC,
+                        moment(value.IPD_DISC).isValid() ? moment(value.IPD_DISC).format('YYYY-MM-DD HH:mm:ss') : "0000-00-00 00:00:00",
                         value.IPC_STATUS,
                         value.DMC_CACR,
                         value.DMC_SLNO,
-                        value.DMD_DATE,
+                        moment(value.DMD_DATE).isValid() ? moment(value.DMD_DATE).format('YYYY-MM-DD HH:mm:ss') : "0000-00-00 00:00:00",
                         value.US_CODE,
                         value.CU_CODE,
                         value.PT_CODE,
@@ -175,16 +172,15 @@ const ipAdmissJob = schedule.scheduleJob('16 * * * *', async () => {
         })
 
     } catch (err) {
-        // console.log(err)
+        console.log(err)
+    } finally {
+        console.log('ipadmiss-completed')
+        if (oraConn) {
+            await oraConn.close();
+            await oraPool.close(3)
+        }
     }
-
-    // console.log(userData)
-    console.log("IP 10 Minits")
-    result.resultSet?.close()
-    // console.log(new Date())
 })
-
-
 module.exports = {
     ipAdmissJob
 }

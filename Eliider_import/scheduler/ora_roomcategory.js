@@ -5,31 +5,33 @@ const pool = require('../../config/database')
 const { oraConnection } = require('../../config/oracleConn');
 const { checkOrarRoomCategoryAlredyExcist } = require('./Func/FilterFunction');
 
-const roomCategoryJob = schedule.scheduleJob('* 8 * * *', async () => {
-    const conn = await oraConnection();
+const roomCategoryJob = schedule.scheduleJob('0 */6 * * *', async () => {
 
-    // Get data From oracle database "OUTLET" table
-    const result = await conn.execute(
-        `SELECT 
-            rc_code,
-            rcc_desc,
-            rcc_alias,
-            rcn_order,
-            rcc_status,
-            us_code,
-            rcd_eddate,
-            rcc_mhcode
-        FROM ROOMCATEGORY`,
-        [],
-        { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
-    )
-
-    const roomCategoryFromOra = await result.resultSet?.getRows();
-
-    //Inser to My sql Database "ora_outlet" table
+    let oraPool = await oraConnection();
+    let oraConn = await oraPool.getConnection();
 
     try {
+
+        // Get data From oracle database "OUTLET" table
+        const result = await oraConn.execute(
+            `SELECT 
+                rc_code,
+                rcc_desc,
+                rcc_alias,
+                rcn_order,
+                rcc_status,
+                us_code,
+                rcd_eddate,
+                rcc_mhcode
+            FROM ROOMCATEGORY`,
+            [],
+            { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
+        )
+
+        const roomCategoryFromOra = await result.resultSet?.getRows();
+
         checkOrarRoomCategoryAlredyExcist((roomCategoryFromMysql) => {
+
             const roomCategory = roomCategoryFromMysql.map((val) => val.rc_code);
 
             let newArray = roomCategoryFromOra?.filter((value) => {
@@ -68,10 +70,13 @@ const roomCategoryJob = schedule.scheduleJob('* 8 * * *', async () => {
 
     } catch (err) {
         console.log(err)
+    } finally {
+        console.log('roomcategy-completed')
+        if (oraConn) {
+            await oraConn.close();
+            await oraPool.close(3)
+        }
     }
-
-    // console.log(userData)
-    console.log(new Date())
 })
 
 

@@ -5,31 +5,33 @@ const pool = require('../../config/database')
 const { oraConnection } = require('../../config/oracleConn');
 const { checkOraNursStationAlredyExcist } = require('./Func/FilterFunction');
 
-const nurstationJob = schedule.scheduleJob('* 7 * * *', async () => {
-    const conn = await oraConnection();
+const nurstationJob = schedule.scheduleJob('0 */6 * * *', async () => {
 
-    // Get data From oracle database "OUTLET" table
-    const result = await conn.execute(
-        `SELECT 
-            ns_code,
-            nsc_desc,
-            nsc_alias,
-            ou_code,
-            nsc_status,
-            nsc_mhcode,
-            us_code
-        FROM NURSTATION`,
-        [],
-        { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
-    )
-
-    const nsCodeFromOracle = await result.resultSet?.getRows();
-
-    //Inser to My sql Database "ora_outlet" table
+    let oraPool = await oraConnection();
+    let oraConn = await oraPool.getConnection();
 
     try {
 
+        // Get data From oracle database "OUTLET" table
+        const result = await oraConn.execute(
+            `SELECT 
+                ns_code,
+                nsc_desc,
+                nsc_alias,
+                ou_code,
+                nsc_status,
+                nsc_mhcode,
+                us_code
+            FROM NURSTATION`,
+            [],
+            { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
+        )
+
+        const nsCodeFromOracle = await result.resultSet?.getRows();
+
+        //Inser to My sql Database "ora_outlet" table
         checkOraNursStationAlredyExcist((nsCodeDataFromMySql) => {
+
             const nsCode = nsCodeDataFromMySql.map((val) => val.ns_code);
 
             let newUserArray = nsCodeFromOracle?.filter((value) => {
@@ -65,12 +67,14 @@ const nurstationJob = schedule.scheduleJob('* 7 * * *', async () => {
 
     } catch (err) {
         console.log(err)
+    } finally {
+        console.log('nurstation-completed')
+        if (oraConn) {
+            await oraConn.close();
+            await oraPool.close(3)
+        }
     }
-
-    // console.log(userData)
-    console.log(new Date())
 })
-
 
 module.exports = {
     nurstationJob

@@ -5,29 +5,30 @@ const pool = require('../../config/database')
 const { oraConnection } = require('../../config/oracleConn');
 const { checkOraUserAlredyExcist } = require('./Func/FilterFunction');
 
-const userUpload_job = schedule.scheduleJob('* 4 * * *', async () => {
-    const conn = await oraConnection();
+const userUpload_job = schedule.scheduleJob('0 */6 * * *', async () => {
 
-    // Get data From oracle database 
-    const result = await conn.execute(
-        `SELECT 
-            us_code,
-            usc_name,
-            usc_alias,
-            usc_status,
-            bill_user,
-            usc_default_mhcode
-        FROM USERS`,
-        [],
-        { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
-    )
-
-    const userDataFromOra = await result.resultSet?.getRows();
-
-    //Inser to My sql Database "ora_users" table
+    let oraPool = await oraConnection();
+    let oraConn = await oraPool.getConnection();
 
     try {
 
+        // Get data From oracle database 
+        const result = await oraConn.execute(
+            `SELECT 
+                us_code,
+                usc_name,
+                usc_alias,
+                usc_status,
+                bill_user,
+                usc_default_mhcode
+            FROM USERS`,
+            [],
+            { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
+        )
+
+        const userDataFromOra = await result.resultSet?.getRows();
+
+        //Inser to My sql Database "ora_users" table
         checkOraUserAlredyExcist((userDataFromMysql) => {
             const userId = userDataFromMysql.map((val) => val.us_code);
 
@@ -60,14 +61,17 @@ const userUpload_job = schedule.scheduleJob('* 4 * * *', async () => {
                 )
             })
         })
+
     } catch (err) {
         console.log(err)
+    } finally {
+        console.log('user-completed')
+        if (oraConn) {
+            await oraConn.close();
+            await oraPool.close(3)
+        }
     }
-
-    // console.log(userData)
-    console.log(new Date())
 })
-
 
 module.exports = {
     userUpload_job

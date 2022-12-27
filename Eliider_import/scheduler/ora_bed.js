@@ -5,42 +5,43 @@ const pool = require('../../config/database')
 const { oraConnection } = require('../../config/oracleConn');
 const { checkOrarBedMastAlredyExcist } = require('./Func/FilterFunction');
 
-const bedJob = schedule.scheduleJob('* 6 * * *', async () => {
-    const conn = await oraConnection();
+const bedJob = schedule.scheduleJob('0 */6 * * *', async () => {
 
-    // Get data From oracle database "OUTLET" table
-    const result = await conn.execute(
-        `SELECT 
-            bd_code,
-            bdc_no,
-            rt_code,
-            ns_code,
-            rm_code,
-            bdc_hour,
-            bdc_occup,
-            bdn_occno,
-            bdc_status,
-            bdd_eddate,
-            dp_code,
-            bdc_minhour,
-            do_code,
-            hkd_lastcleandate,
-            hkd_cleaningreq,
-            bdc_mhcode,
-            bdc_vipbed,
-            bdc_allowcatgchange,
-            bdc_extrabed,
-            bdc_opoccupied
-        FROM BED`,
-        [],
-        { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
-    )
-
-    const bedMasterDataFromOra = await result.resultSet?.getRows();
-
-    //Inser to My sql Database "ora_outlet" table
+    let oraPool = await oraConnection();
+    let oraConn = await oraPool.getConnection();
 
     try {
+        // Get data From oracle database "OUTLET" table
+        const result = await oraConn.execute(
+            `SELECT 
+                bd_code,
+                bdc_no,
+                rt_code,
+                ns_code,
+                rm_code,
+                bdc_hour,
+                bdc_occup,
+                bdn_occno,
+                bdc_status,
+                bdd_eddate,
+                dp_code,
+                bdc_minhour,
+                do_code,
+                hkd_lastcleandate,
+                hkd_cleaningreq,
+                bdc_mhcode,
+                bdc_vipbed,
+                bdc_allowcatgchange,
+                bdc_extrabed,
+                bdc_opoccupied
+            FROM BED`,
+            [],
+            { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
+        )
+
+        const bedMasterDataFromOra = await result.resultSet?.getRows();
+
+        //Inser to My sql Database "ora_outlet" table
         checkOrarBedMastAlredyExcist((bedMasterDataFromMySql) => {
             const bedCode = bedMasterDataFromMySql.map((val) => val.bd_code);
 
@@ -105,12 +106,15 @@ const bedJob = schedule.scheduleJob('* 6 * * *', async () => {
 
     } catch (err) {
         console.log(err)
+    } finally {
+        console.log('bed-completed')
+        if (oraConn) {
+            await oraConn.close();
+            await oraPool.close(3)
+        }
     }
 
-    // console.log(userData)
-    console.log(new Date())
 })
-
 
 module.exports = {
     bedJob

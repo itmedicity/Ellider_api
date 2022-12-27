@@ -2,7 +2,10 @@
 
 # dependencies
 /node_modules
+.env
 
+package-loak.json
+package.json
 
 # misc
 #.eslintcache

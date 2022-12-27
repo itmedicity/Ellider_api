@@ -5,7 +5,7 @@ const moment = require('moment');
 
 const { oraConnection } = require('../../config/oracleConn');
 
-const ipadmissUpdation = schedule.scheduleJob('*/30 * * * *', async () => {
+const ipadmissUpdationBasedOnDischarge = schedule.scheduleJob('*/3 * * * *', async () => {
 
     let oraPool = await oraConnection();
     let oraConn = await oraPool.getConnection();
@@ -13,33 +13,42 @@ const ipadmissUpdation = schedule.scheduleJob('*/30 * * * *', async () => {
     try {
 
         // Get adischarge bill details from oracle database
-        const disBillData = await oraConn.execute(
+        const ipAdmissTableDta = await oraConn.execute(
             `SELECT 
-                IP_NO,
+                PTC_TYPE,
+                IPD_DISC,
                 DMD_DATE,
-                CU_CODE
-            FROM DISBILLMAST 
-            WHERE ( TRUNC(DMD_DATE) = TRUNC(SYSDATE) ) 
-                AND DMC_PTFLAG = 'N' 
-                AND DMC_CANCEL IS NULL`,
+                CU_CODE,
+                DIS_USCODE,
+                IPC_DISSUMSTATUS,
+                IP_NO
+            FROM IPADMISS 
+            WHERE TRUNC(IPD_DISC)  = TRUNC(SYSDATE) AND IPC_PTFLAG = 'N'`,
             [],
             { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
         )
 
-        const disBillDetl = await disBillData.resultSet?.getRows();
+        const disBillDetl = await ipAdmissTableDta.resultSet?.getRows();
 
         disBillDetl?.map((val) => {
             pool.query(
                 `UPDATE 
                     ora_ipadmiss 
                 SET 
-                    ipc_status = 'Y',
+                    ptc_type = ?,
+                    ipd_disc = ?,
                     dmd_date = ?,
-                    cu_code = ?
+                    cu_code = ?,
+                    dis_uscode = ?,
+                    ipc_dissumstatus = ?
                 WHERE ip_no = ?`,
                 [
+                    val.PTC_TYPE,
+                    moment(val.IPD_DISC).isValid() ? moment(val.IPD_DISC).format('YYYY-MM-DD HH:mm:ss') : "0000-00-00 00:00:00",
                     moment(val.DMD_DATE).isValid() ? moment(val.DMD_DATE).format('YYYY-MM-DD HH:mm:ss') : "0000-00-00 00:00:00",
                     val.CU_CODE,
+                    val.DIS_USCODE,
+                    val.IPC_DISSUMSTATUS,
                     val.IP_NO
                 ],
                 (error, result) => {
@@ -54,7 +63,7 @@ const ipadmissUpdation = schedule.scheduleJob('*/30 * * * *', async () => {
     } catch (err) {
         console.log(err)
     } finally {
-        console.log('dischareg ')
+        console.log('ipadmission table 3 minits ')
         if (oraConn) {
             await oraConn.close();
             await oraPool.close(3)
@@ -64,5 +73,5 @@ const ipadmissUpdation = schedule.scheduleJob('*/30 * * * *', async () => {
 })
 
 module.exports = {
-    ipadmissUpdation
+    ipadmissUpdationBasedOnDischarge
 }

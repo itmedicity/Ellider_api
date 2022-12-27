@@ -5,27 +5,28 @@ const pool = require('../../config/database')
 const { oraConnection } = require('../../config/oracleConn');
 const { checkOraDoctorAlredyExcist } = require('./Func/FilterFunction');
 
-const doctorJob = schedule.scheduleJob(' * 6 * * *', async () => {
-    const conn = await oraConnection();
+const doctorJob = schedule.scheduleJob('0 */6 * * *', async () => {
 
-    // Get data From oracle database "OUTLET" table
-    const result = await conn.execute(
-        `SELECT 
-            do_code,
-            doc_name,
-            dt_code,
-            sp_code,
-            doc_status
-        FROM doctor`,
-        [],
-        { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
-    )
-
-    const outletDataFromOra = await result.resultSet?.getRows();
-
-    //Inser to My sql Database "ora_outlet" table
+    let oraPool = await oraConnection();
+    let oraConn = await oraPool.getConnection();
 
     try {
+
+        // Get data From oracle database "OUTLET" table
+        const result = await oraConn.execute(
+            `SELECT 
+                do_code,
+                doc_name,
+                dt_code,
+                sp_code,
+                doc_status
+            FROM doctor`,
+            [],
+            { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
+        )
+
+        const outletDataFromOra = await result.resultSet?.getRows();
+
         checkOraDoctorAlredyExcist((outletDataFromMysql) => {
             const userId = outletDataFromMysql.map((val) => val.do_code);
 
@@ -57,10 +58,14 @@ const doctorJob = schedule.scheduleJob(' * 6 * * *', async () => {
         })
     } catch (err) {
         console.log(err)
+    } finally {
+        console.log('patient-completed')
+        if (oraConn) {
+            await oraConn.close();
+            await oraPool.close(3)
+        }
     }
 
-    // console.log(userData)
-    console.log(new Date())
 })
 
 
