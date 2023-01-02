@@ -6,7 +6,7 @@ const { oraConnection } = require('../../config/oracleConn');
 
 const customDate = moment().format("DD-MMM-YYYY")
 
-const patientImportJob = schedule.scheduleJob('* * * * *', async () => {
+const patientImportJob = schedule.scheduleJob('*/10 * * * *', async () => {
 
     let oraPool = await oraConnection();
     let oraConn = await oraPool.getConnection();
@@ -51,8 +51,12 @@ const patientImportJob = schedule.scheduleJob('* * * * *', async () => {
                 ptc_mobile,
                 ptc_mhcode
             FROM PATIENT 
-            WHERE PT_NO IN (SELECT PT_NO FROM IPADMISS WHERE TRUNC(IPD_DATE) = TRUNC(SYSDATE) 
-            AND IPC_PTFLAG = 'N' AND IPC_STATUS IS NULL)`,
+            WHERE PT_NO IN (
+                SELECT PT_NO FROM IPADMISS 
+                WHERE IPD_DATE >= to_date(To_char(trunc(SYSDATE),'dd/mon/yyyy')||' 00:00:00','dd/mm/yyyy hh24:mi:ss') and
+                        IPD_DATE  <= to_date(To_char(trunc(SYSDATE),'dd/mon/yyyy')||' 23:59:59','dd/mon/yyyy hh24:mi:ss')
+                AND IPC_PTFLAG = 'N' AND IPC_STATUS IS NULL
+            )`,
             [],
             { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
         )

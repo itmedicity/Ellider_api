@@ -14,14 +14,16 @@ const ipadmissUpdation = schedule.scheduleJob('*/30 * * * *', async () => {
 
         // Get adischarge bill details from oracle database
         const disBillData = await oraConn.execute(
-            `SELECT 
-                IP_NO,
-                DMD_DATE,
-                CU_CODE
-            FROM DISBILLMAST 
-            WHERE ( TRUNC(DMD_DATE) = TRUNC(SYSDATE) ) 
-                AND DMC_PTFLAG = 'N' 
-                AND DMC_CANCEL IS NULL`,
+            ` SELECT 
+                    IP_NO,
+                    DMD_DATE,
+                    CU_CODE
+                FROM DISBILLMAST 
+                WHERE 
+                            DMD_DATE  >= to_date(To_char(trunc(SYSDATE),'dd/mon/yyyy')||' 00:00:00','dd/mm/yyyy hh24:mi:ss') and
+                            DMD_DATE  <= to_date(To_char(trunc(SYSDATE),'dd/mon/yyyy')||' 23:59:59','dd/mon/yyyy hh24:mi:ss')
+                    AND DMC_PTFLAG = 'N' 
+                    AND DMC_CANCEL IS NULL`,
             [],
             { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
         )

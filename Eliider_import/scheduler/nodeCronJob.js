@@ -12,12 +12,8 @@ const job = new CronJob('* 2-23 * * *', async () => {
     const customDate = moment().format("DD-MMM-YYYY")
     const customDateMysql = moment().format("YYYY-MM-DD")
 
-    console.log(customDate)
-    console.log(customDateMysql)
-
     let oraPool = await oraConnection();
     let oraConn = await oraPool.getConnection();
-
 
     try {
 

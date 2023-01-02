@@ -5,7 +5,7 @@ const moment = require('moment');
 
 const { oraConnection } = require('../../config/oracleConn');
 
-const ipadmissUpdationBasedOnDischarge = schedule.scheduleJob('*/3 * * * *', async () => {
+const ipadmissUpdationBasedOnDischarge = schedule.scheduleJob('*/10 * * * *', async () => {
 
     let oraPool = await oraConnection();
     let oraConn = await oraPool.getConnection();
@@ -14,7 +14,7 @@ const ipadmissUpdationBasedOnDischarge = schedule.scheduleJob('*/3 * * * *', asy
 
         // Get adischarge bill details from oracle database
         const ipAdmissTableDta = await oraConn.execute(
-            `SELECT 
+            ` SELECT 
                 PTC_TYPE,
                 IPD_DISC,
                 DMD_DATE,
@@ -23,7 +23,10 @@ const ipadmissUpdationBasedOnDischarge = schedule.scheduleJob('*/3 * * * *', asy
                 IPC_DISSUMSTATUS,
                 IP_NO
             FROM IPADMISS 
-            WHERE TRUNC(IPD_DISC)  = TRUNC(SYSDATE) AND IPC_PTFLAG = 'N'`,
+            WHERE  
+                IPD_DISC  >= to_date(To_char(trunc(SYSDATE),'dd/mon/yyyy')||' 00:00:00','dd/mm/yyyy hh24:mi:ss') and
+                IPD_DISC  <= to_date(To_char(trunc(SYSDATE),'dd/mon/yyyy')||' 23:59:59','dd/mon/yyyy hh24:mi:ss')
+                AND IPC_PTFLAG = 'N'`,
             [],
             { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
         )

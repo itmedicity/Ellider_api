@@ -15,7 +15,7 @@ const getAdmittedIpNo = (callBack) => {
     });
 }
 
-const rmallTableImport = schedule.scheduleJob('*/10 * * * *', async () => {
+const rmallTableImport = schedule.scheduleJob('*/15 * * * *', async () => {
 
     let oraPool = await oraConnection();
     let oraConn = await oraPool.getConnection();
@@ -27,7 +27,7 @@ const rmallTableImport = schedule.scheduleJob('*/10 * * * *', async () => {
                 ip_no,
                 bd_code 
             FROM ora_rmall 
-            WHERE DATE(rmd_occupdate) = date(current_date())`,
+            WHERE rmd_occupdate BETWEEN TIMESTAMP(curdate()) AND sysdate()`,
             [],
             (error, result) => {
                 if (error) {
@@ -56,7 +56,8 @@ const rmallTableImport = schedule.scheduleJob('*/10 * * * *', async () => {
                 RMC_MHCODE,
                 RMC_RENTSHARETYPE
             FROM RMALL
-            WHERE TRUNC(RMD_OCCUPDATE) = TRUNC(SYSDATE)`,
+            WHERE RMD_OCCUPDATE >= to_date(To_char(trunc(SYSDATE),'dd/mon/yyyy')||' 00:00:00','dd/mm/yyyy hh24:mi:ss') and
+            RMD_OCCUPDATE <= to_date(To_char(trunc(SYSDATE),'dd/mon/yyyy')||' 23:59:59','dd/mon/yyyy hh24:mi:ss') `,
             [],
             { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
         )
@@ -125,9 +126,7 @@ const rmallTableImport = schedule.scheduleJob('*/10 * * * *', async () => {
                         }
                     )
                 })
-
             })
-
         })
 
     } catch (err) {
