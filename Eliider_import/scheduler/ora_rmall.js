@@ -15,7 +15,7 @@ const getAdmittedIpNo = (callBack) => {
     });
 }
 
-const rmallTableImport = schedule.scheduleJob('*/15 * * * *', async () => {
+const rmallTableImport = schedule.scheduleJob('* * * * *', async () => {
 
     let oraPool = await oraConnection();
     let oraConn = await oraPool.getConnection();
@@ -42,22 +42,25 @@ const rmallTableImport = schedule.scheduleJob('*/15 * * * *', async () => {
         //get the data from oracle
         let result = await oraConn.execute(
             `SELECT 
-                RM_SLNO,
-                IP_NO,
-                BD_CODE,
-                RMD_OCCUPDATE,
-                RMC_OCCUPTYPE,
-                RMD_RELESEDATE,
-                RMC_RELESETYPE,
-                RMC_OCCUPBY,
-                RMC_RLNO,
-                US_CODE,
-                RMN_NO,
-                RMC_MHCODE,
-                RMC_RENTSHARETYPE
-            FROM RMALL
-            WHERE RMD_OCCUPDATE >= to_date(To_char(trunc(SYSDATE),'dd/mon/yyyy')||' 00:00:00','dd/mm/yyyy hh24:mi:ss') and
-            RMD_OCCUPDATE <= to_date(To_char(trunc(SYSDATE),'dd/mon/yyyy')||' 23:59:59','dd/mon/yyyy hh24:mi:ss') `,
+                R.RM_SLNO,
+                R.IP_NO,
+                R.BD_CODE,
+                R.RMD_OCCUPDATE,
+                R.RMC_OCCUPTYPE,
+                R.RMD_RELESEDATE,
+                R.RMC_RELESETYPE,
+                R.RMC_OCCUPBY,
+                R.RMC_RLNO,
+                R.US_CODE,
+                R.RMN_NO,
+                R.RMC_MHCODE,
+                R.RMC_RENTSHARETYPE,
+                A.RC_CODE
+            FROM RMALL R INNER JOIN IPADMISS A ON A.IP_NO = R.IP_NO
+            WHERE 
+                R.RMD_OCCUPDATE >= to_date(To_char(trunc(SYSDATE),'dd/mon/yyyy')||' 00:00:00','dd/mm/yyyy hh24:mi:ss') 
+            AND
+                R.RMD_OCCUPDATE <= to_date(To_char(trunc(SYSDATE),'dd/mon/yyyy')||' 23:59:59','dd/mon/yyyy hh24:mi:ss')`,
             [],
             { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
         )
@@ -80,35 +83,37 @@ const rmallTableImport = schedule.scheduleJob('*/15 * * * *', async () => {
                  */
 
                 const oraRmallAct = actualRmallData?.map((value) => {
-
                     const a = rmallDetl.find((val) => val.ip_no === value.IP_NO && val.rm_slno === value.RM_SLNO && val.bd_code === value.BD_CODE)
                     return a === undefined ? value : null;
-
                 }).filter((val) => val !== null)
 
                 //insert into the mysql 
                 oraRmallAct && oraRmallAct?.map((value) => {
                     pool.query(
                         `INSERT INTO ora_rmall
-                            (rm_slno,
-                            ip_no,
-                            bd_code,
-                            rmd_occupdate,
-                            rmc_occuptype,
-                            rmd_relesedate,
-                            rmd_relesetype,
-                            rmc_occupby,
-                            rmc_rlno,
-                            us_code,
-                            rmn_no,
-                            rmc_mhcode,
-                            rmc_rentsharetype)
+                            (
+                                rm_slno,
+                                ip_no,
+                                bd_code,
+                                rc_code,
+                                rmd_occupdate,
+                                rmc_occuptype,
+                                rmd_relesedate,
+                                rmd_relesetype,
+                                rmc_occupby,
+                                rmc_rlno,
+                                us_code,
+                                rmn_no,
+                                rmc_mhcode,
+                                rmc_rentsharetype
+                            )
                         VALUES
-                        (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+                        (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
                         [
                             value.RM_SLNO,
                             value.IP_NO,
                             value.BD_CODE,
+                            value.RC_CODE,
                             moment(value.RMD_OCCUPDATE).format('YYYY-MM-DD HH:mm:ss'),
                             value.RMC_OCCUPTYPE,
                             moment(value.RMD_RELESEDATE).isValid() ? moment(value.RMD_RELESEDATE).format('YYYY-MM-DD HH:mm:ss') : "0000-00-00 00:00:00",
@@ -126,13 +131,43 @@ const rmallTableImport = schedule.scheduleJob('*/15 * * * *', async () => {
                         }
                     )
                 })
+
+                //updation into the IPADMISS TABLE
+                const ipadmissTableUpdation = async (data) => {
+                    let ipData = data?.map((val) => {
+                        return {
+                            ip_no: val.IP_NO,
+                            bd_code: val.BD_CODE,
+                            rc_code: val.RC_CODE
+                        }
+                    })
+                    ipData?.map((data) => {
+                        pool.query(
+                            `UPDATE ora_ipadmiss 
+                                SET bd_code = ?,
+                                    rc_code = ?
+                            WHERE ip_no = ?`,
+                            [
+                                data.bd_code,
+                                data.rc_code,
+                                data.ip_no
+                            ],
+                            (error, result) => {
+                                if (error) throw error;
+                            }
+                        )
+                    })
+
+                }
+
+                ipadmissTableUpdation(oraRmallAct)
             })
         })
 
     } catch (err) {
         console.log(err)
     } finally {
-        console.log('patient-completed')
+        console.log('patient-completed rmall')
         if (oraConn) {
             await oraConn.close();
             await oraPool.close(3)
